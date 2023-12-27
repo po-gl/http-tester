@@ -47,20 +47,21 @@ func main() {
 	addr := flag.Arg(0)
 
 	makeRequest := func() testResult {
-		start := time.Now()
+		t := time.Now()
 		resp, err := http.Get(addr)
 		if err != nil {
 			fmt.Println("Error: ", err)
-			return testResult{-1, time.Now().Sub(start)}
+			return testResult{-1, time.Now().Sub(t)}
 		}
 		fmt.Printf("%s ", resp.Status)
 
-		return testResult{resp.StatusCode, time.Now().Sub(start)}
+		return testResult{resp.StatusCode, time.Now().Sub(t)}
 	}
 
 	for i := 0; i < *reps; i++ {
+		t := time.Now()
 		result := startTestingLoop(*cnt, makeRequest)
-		fmt.Printf("%d Results(%d): %v\n", i+1, len(result), result)
+		fmt.Printf("%d Results(%d) in %s: %v\n", i+1, len(result), time.Now().Sub(t).String(), result)
 	}
 }
 
