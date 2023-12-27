@@ -29,6 +29,7 @@ func (tr testResult) String() string {
 
 func main() {
 	cnt := flag.Int("n", 5, "count of test requests to make")
+	reps := flag.Int("reps", 1, "repetitions of the test to make")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
@@ -57,8 +58,10 @@ func main() {
 		return testResult{resp.StatusCode, time.Now().Sub(start)}
 	}
 
-	result := startTestingLoop(*cnt, makeRequest)
-	fmt.Printf("Results(%d): %v\n", len(result), result)
+	for i := 0; i < *reps; i++ {
+		result := startTestingLoop(*cnt, makeRequest)
+		fmt.Printf("%d Results(%d): %v\n", i+1, len(result), result)
+	}
 }
 
 func startTestingLoop(cnt int, request func() testResult) []testResult {
