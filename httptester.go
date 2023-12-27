@@ -74,9 +74,8 @@ func startTestingLoop(cnt int, request func() testResult) []testResult {
 	for i := 0; i < cnt; i++ {
 		go func() {
 			defer wg.Done()
-			out <- request()
 			select {
-			case <-time.After(time.Second * 1):
+			case out <- request():
 			case <-ctx.Done():
 				return
 			}
