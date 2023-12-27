@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"sync"
@@ -30,6 +31,7 @@ func (tr testResult) String() string {
 func main() {
 	cnt := flag.Int("n", 5, "count of test requests to make")
 	reps := flag.Int("reps", 1, "repetitions of the test to make")
+	nospread := flag.Bool("no-spread", false, "disable randomly spreading requests within one second per repetition")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
@@ -60,12 +62,12 @@ func main() {
 
 	for i := 0; i < *reps; i++ {
 		t := time.Now()
-		result := startTestingLoop(*cnt, makeRequest)
+		result := startTestingLoop(*cnt, *nospread, makeRequest)
 		fmt.Printf("%d Results(%d) in %s: %v\n", i+1, len(result), time.Now().Sub(t).String(), result)
 	}
 }
 
-func startTestingLoop(cnt int, request func() testResult) []testResult {
+func startTestingLoop(cnt int, nospread bool, request func() testResult) []testResult {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -75,6 +77,9 @@ func startTestingLoop(cnt int, request func() testResult) []testResult {
 	for i := 0; i < cnt; i++ {
 		go func() {
 			defer wg.Done()
+			if !nospread {
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(1000)))
+			}
 			select {
 			case out <- request():
 			case <-ctx.Done():
