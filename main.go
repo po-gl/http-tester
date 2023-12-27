@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -11,38 +13,74 @@ import (
 const timeoutSeconds = 10
 
 // TODO:
-// - refactor into functions/structs
-// - commandline arguments
 // - spread requests randomly within a second
 // - add option to repeat x amount of times
 // - options for more complex requests (POST with JSON body)
 // - record times/statuses and --out to file
 
+type testResult struct {
+	status  int
+	elapsed time.Duration
+}
+
+func (tr testResult) String() string {
+	return fmt.Sprintf("{%d %s}", tr.status, tr.elapsed.String())
+}
+
 func main() {
-	const conc = 10
+	args := os.Args[1:]
+	addr := "http://google.com/"
+	cnt := 5
+
+	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+		fmt.Println("Usage: http-tester [url] [count]")
+		return
+	}
+
+	if len(args) == 2 {
+		addr = args[0]
+
+		i, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("Invalid argument")
+			return
+		}
+		cnt = i
+	}
+
+	makeRequest := func() testResult {
+		start := time.Now()
+		resp, err := http.Get(addr)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			return testResult{-1, time.Now().Sub(start)}
+		}
+		fmt.Printf("%s ", resp.Status)
+
+		return testResult{resp.StatusCode, time.Now().Sub(start)}
+	}
+
+	result := startTestingLoop(cnt, makeRequest)
+	fmt.Printf("Results(%d): %v\n", len(result), result)
+}
+
+func startTestingLoop(cnt int, request func() testResult) []testResult {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	out := make(chan int, conc)
+	out := make(chan testResult, cnt)
 
-	wg.Add(conc)
-	for i := 0; i < conc; i++ {
-		go func(i int) {
+	wg.Add(cnt)
+	for i := 0; i < cnt; i++ {
+		go func() {
 			defer wg.Done()
-			resp, err := http.Get("https://google.com/")
-			if err != nil {
-				fmt.Println("Http error:", err)
-				return
-			}
-			fmt.Printf("%s ", resp.Status)
-
+			out <- request()
 			select {
 			case <-time.After(time.Second * 1):
 			case <-ctx.Done():
 				return
 			}
-			out <- resp.StatusCode
-		}(i)
+		}()
 	}
 
 	select {
@@ -54,11 +92,11 @@ func main() {
 	}
 	close(out)
 
-	var result []int
+	var result []testResult
 	for v := range out {
 		result = append(result, v)
 	}
-	fmt.Printf("Results(%d): %v\n", len(result), result)
+	return result
 }
 
 func wait(wg *sync.WaitGroup) <-chan struct{} {
