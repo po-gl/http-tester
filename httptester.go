@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -28,25 +28,22 @@ func (tr testResult) String() string {
 }
 
 func main() {
-	args := os.Args[1:]
-	addr := "http://google.com/"
-	cnt := 5
+	cnt := flag.Int("n", 5, "count of test requests to make")
 
-	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
-		fmt.Println("Usage: http-tester [url] [count]")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "Arguments:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  URL   the destination URL to test\n")
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+
+	if flag.Arg(0) == "" {
+		flag.Usage()
 		return
 	}
-
-	if len(args) == 2 {
-		addr = args[0]
-
-		i, err := strconv.Atoi(args[1])
-		if err != nil {
-			fmt.Println("Invalid argument")
-			return
-		}
-		cnt = i
-	}
+	addr := flag.Arg(0)
 
 	makeRequest := func() testResult {
 		start := time.Now()
@@ -60,7 +57,7 @@ func main() {
 		return testResult{resp.StatusCode, time.Now().Sub(start)}
 	}
 
-	result := startTestingLoop(cnt, makeRequest)
+	result := startTestingLoop(*cnt, makeRequest)
 	fmt.Printf("Results(%d): %v\n", len(result), result)
 }
 
