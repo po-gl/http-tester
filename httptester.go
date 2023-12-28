@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -14,9 +16,6 @@ import (
 const timeoutSeconds = 10
 
 // TODO:
-// - spread requests randomly within a second
-// - add option to repeat x amount of times
-// - options for more complex requests (POST with JSON body)
 // - record times/statuses and --out to file
 
 type testResult struct {
@@ -29,6 +28,9 @@ func (tr testResult) String() string {
 }
 
 func main() {
+	method := flag.String("X", "GET", "http method to use")
+	body := flag.String("d", "", "data (body) sent with a POST request")
+	contenttype := flag.String("content-type", "application/json", "content-type")
 	cnt := flag.Int("n", 5, "count of test requests to make")
 	reps := flag.Int("reps", 1, "repetitions of the test to make")
 	nospread := flag.Bool("no-spread", false, "disable randomly spreading requests within one second per repetition")
@@ -48,9 +50,22 @@ func main() {
 	}
 	addr := flag.Arg(0)
 
+	bodybuf := bytes.NewBuffer([]byte(*body))
+
 	makeRequest := func() testResult {
 		t := time.Now()
-		resp, err := http.Get(addr)
+		var resp *http.Response
+		var err error
+
+		switch *method {
+		case "GET":
+			resp, err = http.Get(addr)
+		case "POST":
+			resp, err = http.Post(addr, *contenttype, bodybuf)
+		default:
+			err = errors.New("Invalid http method type")
+		}
+
 		if err != nil {
 			fmt.Println("Error: ", err)
 			return testResult{-1, time.Now().Sub(t)}
