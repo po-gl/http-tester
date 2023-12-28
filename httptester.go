@@ -50,7 +50,7 @@ func main() {
 	}
 	addr := flag.Arg(0)
 
-	bodybuf := bytes.NewBuffer([]byte(*body))
+	fmt.Println("body: ", *body)
 
 	makeRequest := func() testResult {
 		t := time.Now()
@@ -61,6 +61,7 @@ func main() {
 		case "GET":
 			resp, err = http.Get(addr)
 		case "POST":
+			bodybuf := bytes.NewBuffer([]byte(*body))
 			resp, err = http.Post(addr, *contenttype, bodybuf)
 		default:
 			err = errors.New("Invalid http method type")
